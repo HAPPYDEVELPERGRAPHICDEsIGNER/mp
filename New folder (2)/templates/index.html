@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="description" content="AI Software Engineering Copilot — A modern developer assistant for code generation, automated testing, static reviews, and repository exploration.">
+  <title>AI Software Engineering Copilot</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar" aria-label="Main Navigation">
+      <div class="sidebar-brand">
+        <div class="brand-logo">
+          <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <span class="brand-title">DevCopilot</span>
+          <span class="brand-subtitle">AI SOFTWARE ENGINEERING</span>
+        </div>
+      </div>
+
+      <div class="nav-section-label">CORE MODULES</div>
+      <nav class="nav-menu">
+        <button class="nav-item active" data-view="dashboard" id="nav-dashboard">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-view="generator" id="nav-generator">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <span>Code Generator</span>
+        </button>
+        <button class="nav-item" data-view="testing" id="nav-testing">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>Automated Testing</span>
+        </button>
+        <button class="nav-item" data-view="review" id="nav-review">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <span>Code Reviewer</span>
+        </button>
+        <button class="nav-item" data-view="github" id="nav-github">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          <span>GitHub Assistant</span>
+        </button>
+        <button class="nav-item" data-view="history" id="nav-history">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Task History</span>
+        </button>
+      </nav>
+
+      <!-- Sidebar Environment Card -->
+      <div class="sidebar-footer">
+        <div class="env-card">
+          <div class="env-card-header">
+            <span class="status-dot green"></span>
+            <span class="env-title" id="sidebar-engine-name">Local Engine</span>
+          </div>
+          <div class="env-details" id="sidebar-engine-mode">Demo Mode (Offline)</div>
+          <div class="env-subtext">SQLite Database: Connected</div>
+        </div>
+        <div class="developer-profile">
+          <div class="avatar-badge">DEV</div>
+          <div class="profile-info">
+            <span class="profile-name">Student Developer</span>
+            <span class="profile-role">Local Workspace</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper">
+      <!-- Top Header Navigation -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle navigation menu">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="breadcrumbs">
+            <span class="crumb-root">DevCopilot</span>
+            <span class="crumb-separator">/</span>
+            <span class="crumb-current" id="crumbTitle">Dashboard</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <span class="badge badge-success" id="topbar-status-badge">
+            <span class="pulse-dot"></span> System Online
+          </span>
+          <span class="badge badge-outline" id="topbar-ai-badge">Demo Mode</span>
+          <button class="button button-sm button-primary" data-go="generator">
+            <span>+</span> New Task
+          </button>
+        </div>
+      </header>
+
+      <!-- Global Toast Notification Container -->
+      <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+      <!-- Main Scrollable Content Container -->
+      <main class="content-area">
+
+        <!-- ========================================== -->
+        <!-- 1. DASHBOARD VIEW                          -->
+        <!-- ========================================== -->
+        <section class="view active" id="view-dashboard">
+          <div class="view-header">
+            <div>
+              <span class="view-eyebrow">WORKSPACE TELEMETRY</span>
+              <h1 class="view-title">Developer Dashboard</h1>
+              <p class="view-description">Real-time statistics, modular workflows, and activity history powered by local SQLite.</p>
+            </div>
+            <div class="view-header-actions">
+              <button class="button button-outline" id="refreshDashboardBtn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Refresh Data
+              </button>
+            </div>
+          </div>
+
+          <!-- Environment Banner -->
+          <div class="info-banner" id="dashboard-env-banner">
+            <div class="info-banner-icon">💡</div>
+            <div class="info-banner-content">
+              <strong>Running in Deterministic Local Demo Mode</strong>
+              <p>Code generation and pattern analysis execute locally without requiring an API key. To enable live AI, add <code>GEMINI_API_KEY</code> or <code>OPENAI_API_KEY</code> to your <code>.env</code> file.</p>
+            </div>
+            <span class="badge badge-purple">LOCAL SAFE</span>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-label">Total Saved Tasks</span>
+                <div class="stat-icon-wrapper blue">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-total-tasks">0</div>
+              <div class="stat-footer">Stored locally in SQLite</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-label">Code Generations</span>
+                <div class="stat-icon-wrapper purple">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-generations">0</div>
+              <div class="stat-footer">Scaffolds & algorithms created</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-label">Tests Executed</span>
+                <div class="stat-icon-wrapper green">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-tests">0</div>
+              <div class="stat-footer">Isolated subprocess test runs</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-label">Code Reviews</span>
+                <div class="stat-icon-wrapper amber">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-reviews">0</div>
+              <div class="stat-footer">Security & bug audits run</div>
+            </div>
+          </div>
+
+          <!-- Quick Action Workspaces -->
+          <div class="section-title-wrap">
+            <h2 class="section-title">Quick Actions</h2>
+            <span class="section-subtitle">Jump straight to any developer tool</span>
+          </div>
+
+          <div class="quick-grid">
+            <div class="quick-card" data-go="generator">
+              <div class="quick-card-icon purple">⚡</div>
+              <div class="quick-card-body">
+                <h3>Generate Code</h3>
+                <p>Turn requirements into clean code for Python, JavaScript, C++, or Java.</p>
+              </div>
+              <span class="quick-arrow">→</span>
+            </div>
+
+            <div class="quick-card" data-go="testing">
+              <div class="quick-card-icon green">✓</div>
+              <div class="quick-card-body">
+                <h3>Automated Testing</h3>
+                <p>Auto-generate unit test suites and execute safely in an isolated sandbox.</p>
+              </div>
+              <span class="quick-arrow">→</span>
+            </div>
+
+            <div class="quick-card" data-go="review">
+              <div class="quick-card-icon amber">◉</div>
+              <div class="quick-card-body">
+                <h3>Code Reviewer</h3>
+                <p>Detect security flaws, unhandled exceptions, and readability bottlenecks.</p>
+              </div>
+              <span class="quick-arrow">→</span>
+            </div>
+
+            <div class="quick-card" data-go="github">
+              <div class="quick-card-icon blue">🐙</div>
+              <div class="quick-card-body">
+                <h3>GitHub Assistant</h3>
+                <p>Inspect public repository files, README, and read-only Pull Request reviews.</p>
+              </div>
+              <span class="quick-arrow">→</span>
+            </div>
+          </div>
+
+          <!-- Recent Activity Table -->
+          <div class="section-title-wrap" style="margin-top: 32px;">
+            <div class="title-with-button">
+              <div>
+                <h2 class="section-title">Recent Activity</h2>
+                <span class="section-subtitle">Latest operations saved to your local database</span>
+              </div>
+              <button class="button button-sm button-ghost" data-go="history">View All History →</button>
+            </div>
+          </div>
+
+          <div class="card table-card">
+            <div id="recentActivityContainer" class="activity-container">
+              <div class="empty-state">Loading recent activity...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 2. AI CODE GENERATOR VIEW                  -->
+        <!-- ========================================== -->
+        <section class="view" id="view-generator">
+          <div class="view-header">
+            <div>
+              <span class="view-eyebrow">DEVELOPMENT MODULE</span>
+              <h1 class="view-title">AI Code Generator</h1>
+              <p class="view-description">Synthesize production-grade source code from natural language requirements.</p>
+            </div>
+            <span class="badge badge-purple" id="genModeBadge">DEMO MODE</span>
+          </div>
+
+          <!-- Preset requirement chips -->
+          <div class="preset-container">
+            <span class="preset-label">Example Prompts:</span>
+            <button class="preset-chip" data-prompt="Write an O(1) LRU Cache with get and put methods and clean edge case handling" data-lang="Python">LRU Cache (Python)</button>
+            <button class="preset-chip" data-prompt="Write a factorial function with strict type and boundary validation" data-lang="Python">Factorial (Python)</button>
+            <button class="preset-chip" data-prompt="Write a Binary Search algorithm that prevents integer overflow" data-lang="C++">Binary Search (C++)</button>
+            <button class="preset-chip" data-prompt="Write a thread-safe Singleton design pattern" data-lang="Java">Singleton (Java)</button>
+            <button class="preset-chip" data-prompt="Write a REST API user registration endpoint with input validation" data-lang="JavaScript">REST Endpoint (JS)</button>
+            <button class="preset-chip" data-prompt="Write an iterative O(1) space Fibonacci sequence calculator" data-lang="Python">Fibonacci O(1) (Python)</button>
+          </div>
+
+          <div class="card workspace-card">
+            <div class="form-group">
+              <label for="genPrompt" class="form-label">Programming Requirements / Prompt</label>
+              <textarea id="genPrompt" class="form-textarea" rows="4" placeholder="Describe the function, class, algorithm, or feature you want to generate (e.g., 'Write an LRU Cache with capacity limit in Python')..."></textarea>
+            </div>
+
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label for="genLanguage" class="form-label">Programming Language</label>
+                <select id="genLanguage" class="form-select">
+                  <option value="Python">Python</option>
+                  <option value="JavaScript">JavaScript</option>
+                  <option value="C++">C++</option>
+                  <option value="Java">Java</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="genStyle" class="form-label">Code Architecture Style</label>
+                <select id="genStyle" class="form-select">
+                  <option value="standard">Standard Idiomatic</option>
+                  <option value="oop">Object-Oriented Class</option>
+                  <option value="production">Production-Ready (Error Handled)</option>
+                </select>
+              </div>
+
+              <div class="form-group form-align-end">
+                <button class="button button-primary button-full" id="generateCodeBtn">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  Generate Code
+                </button>
+              </div>
+            </div>
+
+            <!-- Output Container -->
+            <div id="genResultContainer" class="result-box hidden">
+              <div class="code-box-header">
+                <div class="code-box-title">
+                  <span class="file-icon">📄</span>
+                  <span id="genResultFilename">generated_code.py</span>
+                  <span class="badge badge-sm badge-outline" id="genResultEngineTag">Local Synthesizer</span>
+                </div>
+                <div class="code-box-actions">
+                  <button class="button button-sm button-ghost" id="copyGenCodeBtn">Copy Code</button>
+                  <button class="button button-sm button-outline" id="downloadGenCodeBtn">Download File</button>
+                </div>
+              </div>
+              <pre class="code-pre"><code id="genResultCode" class="code-content"></code></pre>
+              <div class="code-explanation-card" id="genExplanationCard">
+                <h4>Architecture Notes & Explanation</h4>
+                <p id="genExplanationText"></p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 3. AUTOMATED TESTING VIEW                  -->
+        <!-- ========================================== -->
+        <section class="view" id="view-testing">
+          <div class="view-header">
+            <div>
+              <span class="view-eyebrow">QUALITY ASSURANCE MODULE</span>
+              <h1 class="view-title">Automated Testing</h1>
+              <p class="view-description">Auto-synthesize unit tests with Python AST and execute them safely inside an isolated child process.</p>
+            </div>
+            <span class="badge badge-success">ISOLATED SANDBOX</span>
+          </div>
+
+          <!-- Sandboxing Architecture Viva Note -->
+          <div class="sandbox-security-notice">
+            <div class="notice-icon">🛡️</div>
+            <div class="notice-body">
+              <strong>Isolated Process Execution & AST Security Screening</strong>
+              <p>Untrusted user code is never executed directly inside the main web server process. Prior to execution, an AST security visitor scans for forbidden system calls (such as <code>os.system</code>, <code>subprocess</code>, <code>socket</code>, or arbitrary <code>eval</code>). Permitted scripts run in a dedicated temporary subprocess with a strict 3.5-second timeout.</p>
+            </div>
+          </div>
+
+          <!-- Starter Test Snippets -->
+          <div class="preset-container">
+            <span class="preset-label">Test Snippets:</span>
+            <button class="preset-chip" id="presetTestMath">Math Function (Valid)</button>
+            <button class="preset-chip" id="presetTestString">String Formatter (Valid)</button>
+            <button class="preset-chip" id="presetTestBuggy">Failing Logic (Divide by Zero)</button>
+            <button class="preset-chip" id="presetTestDisallowed">Dangerous Code (Blocked by Guardrail)</button>
+          </div>
+
+          <div class="card workspace-card">
+            <div class="testing-split-grid">
+              <!-- Left: Source Code -->
+              <div class="test-pane">
+                <div class="pane-header">
+                  <span class="pane-title">1. Python Source Code</span>
+                  <span class="pane-badge">Target Function</span>
+                </div>
+                <textarea id="testSourceCode" class="code-textarea" rows="12" placeholder="def calculate_discount(price: float, rate: float) -> float:
+    if rate < 0 or rate > 1:
+        raise ValueError('Invalid rate')
+    return price * (1.0 - rate)"></textarea>
+                <div class="pane-footer">
+                  <button class="button button-outline button-full" id="generateTestSuiteBtn">
+                    ✦ Auto-Generate Unit Tests (AST)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Right: Test Suite Code -->
+              <div class="test-pane">
+                <div class="pane-header">
+                  <span class="pane-title">2. Unit Test Suite (unittest.TestCase)</span>
+                  <span class="pane-badge">Assertions</span>
+                </div>
+                <textarea id="testSuiteCode" class="code-textarea" rows="12" placeholder="# Click 'Auto-Generate Unit Tests' or paste your unittest script here..."></textarea>
+                <div class="pane-footer">
+                  <div class="sandbox-toggle-row">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="allowExecutionToggle" checked>
+                      <span class="slider"></span>
+                    </label>
+                    <span class="toggle-label">Run in Isolated Child Subprocess</span>
+                  </div>
+                  <button class="button button-primary button-full" id="runTestsBtn">
+                    ✓ Run Tests in Sandbox
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Test Execution Results -->
+            <div id="testResultContainer" class="result-box hidden">
+              <div class="test-result-summary">
+                <div class="test-stat-item">
+                  <span class="test-stat-label">Execution Status</span>
+                  <span class="badge" id="testResultStatusBadge">PASSED</span>
+                </div>
+                <div class="test-stat-item">
+                  <span class="test-stat-label">Tests Passed</span>
+                  <span class="test-stat-number green" id="testPassedCount">0</span>
+                </div>
+                <div class="test-stat-item">
+                  <span class="test-stat-label">Tests Failed</span>
+                  <span class="test-stat-number red" id="testFailedCount">0</span>
+                </div>
+                <div class="test-stat-item">
+                  <span class="test-stat-label">Process Duration</span>
+                  <span class="test-stat-number" id="testDuration">0ms</span>
+                </div>
+              </div>
+
+              <!-- Security alert box if guardrail was triggered -->
+              <div id="testSecurityAlert" class="security-alert-box hidden">
+                <h4>⚠️ Security Violation Intercepted</h4>
+                <ul id="testSecurityViolationsList"></ul>
+              </div>
+
+              <div class="console-box">
+                <div class="console-header">Isolated Process Stdout / Stderr</div>
+                <pre class="console-output" id="testConsoleOutput"></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 4. AI CODE REVIEWER VIEW                   -->
+        <!-- ========================================== -->
+        <section class="view" id="view-review">
+          <div class="view-header">
+            <div>
+              <span class="view-eyebrow">STATIC ANALYSIS & SECURITY</span>
+              <h1 class="view-title">AI Code Reviewer</h1>
+              <p class="view-description">Multi-dimensional static code audit inspecting security risks, potential bugs, readability, and maintainability.</p>
+            </div>
+            <span class="badge badge-purple" id="reviewEngineBadge">LOCAL HEURISTIC ENGINE</span>
+          </div>
+
+          <!-- Preset review samples -->
+          <div class="preset-container">
+            <span class="preset-label">Load Test Snippet:</span>
+            <button class="preset-chip" id="loadReviewVulnerable">Vulnerable Python (API Key + Eval + Bare Except)</button>
+            <button class="preset-chip" id="loadReviewJs">JavaScript (Loose Equality + innerHTML XSS)</button>
+            <button class="preset-chip" id="loadReviewCpp">C++ (Buffer Overflow strcpy + Memory Leak)</button>
+            <button class="preset-chip" id="loadReviewClean">Clean & Formatted Code (High Grade)</button>
+          </div>
+
+          <div class="card workspace-card">
+            <div class="form-row-spaced">
+              <div class="form-group" style="flex: 1;">
+                <label for="reviewLanguage" class="form-label">Programming Language</label>
+                <select id="reviewLanguage" class="form-select">
+                  <option value="Python">Python</option>
+                  <option value="JavaScript">JavaScript</option>
+                  <option value="C++">C++</option>
+                  <option value="Java">Java</option>
+                </select>
+              </div>
+              <div class="form-group form-align-end">
+                <button class="button button-primary" id="runReviewBtn">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  Run Deep Code Review
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="reviewSourceCode" class="form-label">Source Code for Audit</label>
+              <textarea id="reviewSourceCode" class="code-textarea" rows="12" placeholder="Paste Python, JavaScript, C++, or Java source code here..."></textarea>
+            </div>
+
+            <!-- Review Results Container -->
+            <div id="reviewResultContainer" class="result-box hidden">
+              <!-- Score and Metrics Card -->
+              <div class="review-score-grid">
+                <div class="score-card">
+                  <div class="score-circle" id="reviewScoreCircle">
+                    <span class="score-number" id="reviewScoreNumber">85</span>
+                    <span class="score-max">/100</span>
+                  </div>
+                  <div class="score-text">
+                    <span class="grade-badge" id="reviewGradeBadge">Grade A</span>
+                    <span class="score-status" id="reviewScoreStatus">Overall Good</span>
+                  </div>
+                </div>
+
+                <div class="metrics-card">
+                  <div class="metric-row">
+                    <span class="metric-badge critical">Critical Issues</span>
+                    <strong id="metricCritical">0</strong>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-badge high">High Priority</span>
+                    <strong id="metricHigh">0</strong>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-badge medium">Medium Issues</span>
+                    <strong id="metricMedium">0</strong>
+                  </div>
+                  <div class="metric-row">
+                    <span class="metric-badge low">Low / Style</span>
+                    <strong id="metricLow">0</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Findings List -->
+              <div class="section-title-wrap" style="margin-top: 24px;">
+                <h3 class="section-title">Detailed Audit Findings</h3>
+                <span class="section-subtitle" id="findingsSummaryText">Showing all flagged items</span>
+              </div>
+
+              <div id="findingsList" class="findings-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 5. GITHUB ASSISTANT VIEW                   -->
+        <!-- ========================================== -->
+        <section class="view" id="view-github">
+          <div class="view-header">
+            <div>
+              <span class="view-eyebrow">REPOSITORY RECONNAISSANCE</span>
+              <h1 class="view-title">GitHub Assistant</h1>
+              <p class="view-description">Inspect public repositories, browse source trees, read READMEs, and generate read-only Pull Request review checklists.</p>
+            </div>
+            <span class="badge badge-blue">REST API (READ-ONLY)</span>
+          </div>
+
+          <!-- Preset Repos -->
+          <div class="preset-container">
+            <span class="preset-label">Popular Repositories:</span>
+            <button class="preset-chip" data-repo="https://github.com/tiangolo/fastapi">tiangolo/fastapi</button>
+            <button class="preset-chip" data-repo="https://github.com/pallets/flask">pallets/flask</button>
+            <button class="preset-chip" data-repo="https://github.com/psf/requests">psf/requests</button>
+            <button class="preset-chip" data-repo="https://github.com/torvalds/linux">torvalds/linux</button>
+          </div>
+
+          <div class="card workspace-card">
+            <div class="repo-input-bar">
+              <input type="url" id="githubRepoUrl" class="form-input" placeholder="https://github.com/owner/repository" value="https://github.com/tiangolo/fastapi">
+              <button class="button button-primary" id="inspectRepoBtn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Inspect Repository
+              </button>
+            </div>
+            <p class="helper-text">Queries GitHub's public REST API safely from the backend. Your personal tokens are never exposed to browser scripts.</p>
+
+            <!-- Repository Result Container -->
+            <div id="githubResultContainer" class="result-box hidden">
+              <!-- Header Telemetry Card -->
+              <div class="repo-telemetry-card">
+                <div class="repo-telemetry-header">
+                  <div>
+                    <h2 class="repo-name" id="ghRepoName">owner/repo</h2>
+                    <p class="repo-desc" id="ghRepoDesc"></p>
+                  </div>
+                  <a href="#" id="ghRepoLink" target="_blank" rel="noopener noreferrer" class="button button-sm button-outline">
+                    View on GitHub ↗
+                  </a>
+                </div>
+
+                <div class="repo-stats-row">
+                  <div class="repo-stat-pill">⭐ <strong id="ghStars">0</strong> Stars</div>
+                  <div class="repo-stat-pill">🍴 <strong id="ghForks">0</strong> Forks</div>
+                  <div class="repo-stat-pill">⚠️ <strong id="ghIssues">0</strong> Issues</div>
+                  <div class="repo-stat-pill">💻 <strong id="ghLanguage">Python</strong></div>
+                  <div class="repo-stat-pill">📜 <strong id="ghLicense">MIT</strong></div>
+                  <div class="repo-stat-pill">🌿 <strong id="ghBranch">main</strong></div>
+                </div>
+              </div>
+
+              <!-- Tabbed Explorer -->
+              <div class="tab-navigation">
+                <button class="tab-btn active" data-tab="files">📁 Root Files (<span id="ghFilesCount">0</span>)</button>
+                <button class="tab-btn" data-tab="readme">📖 README.md</button>
+                <button class="tab-btn" data-tab="commits">🕒 Recent Commits</button>
+                <button class="tab-btn" data-tab="pulls">🔀 Pull Request Reviewer</button>
+              </div>
+
+              <!-- Tab 1: File Explorer -->
+              <div class="tab-panel active" id="tab-files">
+                <div class="file-browser-container">
+                  <div class="file-list-pane" id="ghFilesList"></div>
+                  <div class="file-preview-pane">
+                    <div class="preview-header">
+                      <span id="ghPreviewFilename">Select a file from the left to view contents</span>
+                      <button class="button button-sm button-ghost hidden" id="copyFilePreviewBtn">Copy</button>
+                    </div>
+                    <pre class="preview-pre"><code id="ghPreviewContent">Click on any source or markdown file to inspect its code.</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab 2: README -->
+              <div class="tab-panel" id="tab-readme">
+                <div class="readme-container">
+                  <pre class="readme-pre" id="ghReadmeContent">Loading README...</pre>
+                </div>
+              </div>
+
+              <!-- Tab 3: Recent Commits -->
+              <div class="tab-panel" id="tab-commits">
+                <div class="commits-list" id="ghCommitsList"></div>
+              </div>
+
+              <!-- Tab 4: Pull Request Reviewer -->
+              <div class="tab-panel" id="tab-pulls">
+                <div class="pulls-header-notice">
+                  <span>Automated Read-Only PR Review Analysis. No merge or commit actions are performed.</span>
+                </div>
+                <div class="pulls-list" id="ghPullsList"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 6. TASK HISTORY VIEW                       -->
+        <!-- ========================================== -->
+        <section class="view" id="view-history">
+          <div class="view-header">
+            <div>
+              <span class="view-eyebrow">DATABASE PERSISTENCE</span>
+              <h1 class="view-title">Task History</h1>
+              <p class="view-description">Inspect, reopen, or remove previously executed operations saved in your local SQLite database.</p>
+            </div>
+            <div class="view-header-actions">
+              <button class="button button-outline" id="refreshHistoryBtn">
+                ↻ Refresh
+              </button>
+              <button class="button button-danger" id="clearAllHistoryBtn">
+                Clear All
+              </button>
+            </div>
+          </div>
+
+          <!-- History Filters -->
+          <div class="history-controls-card">
+            <div class="filter-tabs" id="historyFilterTabs">
+              <button class="filter-btn active" data-filter="all">All Modules</button>
+              <button class="filter-btn" data-filter="generate">Code Generator</button>
+              <button class="filter-btn" data-filter="test">Automated Testing</button>
+              <button class="filter-btn" data-filter="review">Code Reviewer</button>
+              <button class="filter-btn" data-filter="github">GitHub</button>
+            </div>
+            <div class="search-input-wrap">
+              <input type="text" id="historySearchInput" class="form-input" placeholder="Search prompt or description...">
+            </div>
+          </div>
+
+          <div class="card table-card">
+            <div id="historyTableContainer" class="history-table-wrapper">
+              <div class="empty-state">Loading task history...</div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- App Footer -->
+      <footer class="app-footer">
+        <span>DevCopilot — AI Software Engineering Copilot</span>
+        <span class="footer-dot">•</span>
+        <span>Local-first Full-stack Architecture</span>
+        <span class="footer-dot">•</span>
+        <span>FastAPI + Vanilla JS + SQLite</span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Detail Modal for inspecting task JSON -->
+  <div class="modal-backdrop hidden" id="taskDetailModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">Task Details</h3>
+        <button class="modal-close-btn" id="modalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-meta-row" id="modalMetaRow"></div>
+        <pre class="modal-code-pre"><code id="modalJsonCode"></code></pre>
+      </div>
+      <div class="modal-footer">
+        <button class="button button-outline" id="modalCopyJsonBtn">Copy JSON</button>
+        <button class="button button-primary" id="modalReopenBtn">Reopen in Module</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Client-side JavaScript -->
+  <script src="/static/js/app.js" defer></script>
+</body>
+</html>
