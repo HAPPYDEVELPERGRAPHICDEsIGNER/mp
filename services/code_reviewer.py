@@ -98,10 +98,15 @@ def _check_security(code: str, language: str, findings: List[Dict[str, Any]]):
 
     # Dynamic execution (eval/exec)
     if re.search(r"\beval\s*\(|\bexec\s*\(", code):
+        eval_line = None
+        for idx, line in enumerate(lines, start=1):
+            if re.search(r"\beval\s*\(|\bexec\s*\(", line):
+                eval_line = idx
+                break
         findings.append({
             "category": "Security",
             "severity": "Critical",
-            "line": None,
+            "line": eval_line,
             "title": "Unsafe Dynamic Code Execution (eval/exec)",
             "explanation": "eval() or exec() executes arbitrary code strings. An attacker supplying input can execute shell commands.",
             "suggested_fix": "Use safe parsing (e.g. ast.literal_eval, JSON.parse) instead of arbitrary evaluation."
@@ -109,10 +114,15 @@ def _check_security(code: str, language: str, findings: List[Dict[str, Any]]):
 
     # SQL Injection via string concatenation
     if re.search(r"(?i)(SELECT|INSERT|UPDATE|DELETE)\s+.*\s*(\+|%|\.format|\$)\s*", code):
+        sql_line = None
+        for idx, line in enumerate(lines, start=1):
+            if re.search(r"(?i)(SELECT|INSERT|UPDATE|DELETE)\s+.*\s*(\+|%|\.format|\$)\s*", line):
+                sql_line = idx
+                break
         findings.append({
             "category": "Security",
             "severity": "High",
-            "line": None,
+            "line": sql_line,
             "title": "Potential SQL Injection Vulnerability",
             "explanation": "SQL query formed by string concatenation or interpolation allows malicious SQL statements to execute.",
             "suggested_fix": "Use parameterized queries (e.g., cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,)))"

@@ -88,9 +88,17 @@ def generate_test_suite(code: str) -> Dict[str, Any]:
 
     functions = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
     if not functions:
+        # Check classes for methods if no top-level functions exist
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                for m in node.body:
+                    if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and not m.name.startswith("__"):
+                        functions.append(m)
+
+    if not functions:
         return {
             "success": False,
-            "error": "No top-level functions found in the submitted code. Define at least one function.",
+            "error": "No functions or class methods found in the submitted code. Define at least one function.",
             "generated_tests": ""
         }
 
@@ -221,9 +229,11 @@ def run_tests_isolated(code: str, test_code: Optional[str] = None, allow_executi
 
         start_time = time.perf_counter()
         try:
-            # Execute with python executable in isolated subprocess with 3.0s timeout
+            # Execute with python executable in isolated subprocess with 3.5s timeout
             env = os.environ.copy()
             env["PYTHONDONTWRITEBYTECODE"] = "1"
+            env["PYTHONUTF8"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"
             
             proc = subprocess.run(
                 [sys.executable, test_file],

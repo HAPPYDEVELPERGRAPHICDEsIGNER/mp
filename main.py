@@ -6,13 +6,12 @@ import os
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query, status
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from starlette.requests import Request as StarletteRequest
 
 # Load optional local .env configuration
 try:
@@ -103,6 +102,8 @@ class GitHubFileRequest(BaseModel):
 async def serve_home():
     """Serves the single-page developer dashboard."""
     index_file = BASE_DIR / "templates" / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="Frontend template index.html not found.")
     return FileResponse(str(index_file))
 
 # ==========================================

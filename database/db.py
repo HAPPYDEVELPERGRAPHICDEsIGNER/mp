@@ -12,14 +12,15 @@ logger = logging.getLogger("copilot.db")
 
 # Default database location inside database/ directory
 DEFAULT_DB_PATH = Path(__file__).resolve().parent / "copilot.db"
-DB_PATH = Path(os.getenv("COPILOT_DB", str(DEFAULT_DB_PATH)))
 
 def get_db_path() -> Path:
-    return DB_PATH
+    """Returns the active SQLite database path, supporting dynamic env overrides."""
+    return Path(os.getenv("COPILOT_DB", str(DEFAULT_DB_PATH)))
 
 def init_db():
     """Initializes SQLite database tables and indices."""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    db_path = get_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     with connect() as conn:
         conn.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
@@ -37,13 +38,14 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_module ON tasks(module)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_created ON tasks(created_at DESC)")
         conn.commit()
-    logger.info("Database initialized at %s", DB_PATH)
+    logger.info("Database initialized at %s", db_path)
 
 @contextmanager
 def connect():
     """Context manager for SQLite connections with row factory and WAL mode."""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH), timeout=10.0)
+    db_path = get_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path), timeout=10.0)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA journal_mode=WAL")

@@ -20,6 +20,9 @@ GITHUB_API_BASE = "https://api.github.com"
 def parse_repo_url(url: str) -> Tuple[str, str]:
     """Validates and extracts owner and repository name from GitHub URL."""
     cleaned = url.strip()
+    if not cleaned.startswith(("http://", "https://")):
+        cleaned = "https://" + cleaned
+
     parsed = urlparse(cleaned)
     if parsed.scheme not in ("https", "http") or parsed.netloc not in ("github.com", "www.github.com"):
         raise ValueError("Invalid URL format. Please provide a valid GitHub repository URL (e.g., https://github.com/owner/repository).")
@@ -160,7 +163,11 @@ async def fetch_readme(url: str) -> Dict[str, Any]:
         data = resp.json()
 
     raw_content = data.get("content", "")
-    decoded_text = base64.b64decode(raw_content).decode("utf-8", errors="replace")
+    encoding = data.get("encoding", "base64")
+    if encoding == "base64":
+        decoded_text = base64.b64decode(raw_content).decode("utf-8", errors="replace")
+    else:
+        decoded_text = raw_content
     return {"found": True, "content": decoded_text[:100_000]}
 
 async def fetch_pull_requests(url: str) -> Dict[str, Any]:

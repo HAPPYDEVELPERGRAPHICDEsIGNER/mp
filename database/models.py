@@ -36,6 +36,9 @@ def save_task(
     serialized_input = _serialize(input_data) if input_data is not None else None
     serialized_result = _serialize(result)
 
+    clean_title = (title or "")[:200]
+    clean_description = (description or "")[:4000]
+
     with connect() as conn:
         cursor = conn.execute(
             """
@@ -44,8 +47,8 @@ def save_task(
             """,
             (
                 module,
-                title[:200],
-                description[:4000],
+                clean_title,
+                clean_description,
                 language,
                 serialized_input,
                 serialized_result,
@@ -59,8 +62,8 @@ def save_task(
     return {
         "id": task_id,
         "module": module,
-        "title": title[:200],
-        "description": description[:4000],
+        "title": clean_title,
+        "description": clean_description,
         "language": language,
         "status": status,
         "result": result,
