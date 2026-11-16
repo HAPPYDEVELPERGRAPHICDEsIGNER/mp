@@ -32,3 +32,6 @@ Thumbs.db
 .coverage
 htmlcov/
 .tox/
+
+# Backup files from safe AI code refactoring
+*.backup

@@ -12,26 +12,39 @@ import httpx
 
 logger = logging.getLogger("copilot.ai_service")
 
+# Import centralized Gemini service
+from . import gemini_service
+
 # Supported programming languages
 SUPPORTED_LANGUAGES = ["Python", "C++", "Java", "JavaScript"]
 
 def is_ai_configured() -> bool:
-    """Checks if an external AI LLM provider is configured via environment variables."""
-    return bool(os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"))
+    """Checks if Google Gemini API key is configured in the environment."""
+    return gemini_service.is_gemini_configured()
 
 def get_ai_provider_info() -> Dict[str, Any]:
-    """Returns provider status without exposing secrets."""
-    if os.getenv("GEMINI_API_KEY"):
-        return {"configured": True, "provider": "Google Gemini", "model": os.getenv("GEMINI_MODEL", "gemini-1.5-flash")}
-    if os.getenv("OPENAI_API_KEY"):
-        return {"configured": True, "provider": "OpenAI", "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini")}
-    return {"configured": False, "provider": "Local Heuristic Engine", "model": "Deterministic Code Synthesizer (Demo Mode)"}
+    """Returns Gemini provider status and selected model without exposing secrets."""
+    configured = gemini_service.is_gemini_configured()
+    active_model = gemini_service.get_selected_model()
+    if configured:
+        return {
+            "configured": True,
+            "provider": "Google Gemini",
+            "model": active_model,
+            "models_info": gemini_service.get_models_info()
+        }
+    return {
+        "configured": False,
+        "provider": "Local Heuristic Engine",
+        "model": "Deterministic Code Synthesizer (Demo Mode)",
+        "models_info": gemini_service.get_models_info()
+    }
 
-async def generate_code(prompt: str, language: str, style: str = "standard") -> Dict[str, Any]:
+async def generate_code(prompt: str, language: str, style: str = "standard", model: Optional[str] = None) -> Dict[str, Any]:
     """
     Generates code based on the prompt and language.
-    If an API key is available, calls the LLM provider.
-    Otherwise, returns deterministic, high-quality starter code.
+    If Gemini API key is available, calls Google Gemini via the official SDK.
+    Otherwise, returns deterministic, high-quality local starter code.
     """
     cleaned_prompt = prompt.strip()
     if not cleaned_prompt:
@@ -39,109 +52,96 @@ async def generate_code(prompt: str, language: str, style: str = "standard") -> 
     if language not in SUPPORTED_LANGUAGES:
         raise ValueError(f"Language '{language}' is not supported. Must be one of {SUPPORTED_LANGUAGES}")
 
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
-
-    if gemini_key:
+    if gemini_service.is_gemini_configured():
         try:
-            return await _generate_with_gemini(cleaned_prompt, language, gemini_key, style)
+            return await _generate_with_gemini(cleaned_prompt, language, style, model)
         except Exception as e:
             logger.warning("Gemini generation failed (%s); falling back to local generator", e)
             fallback = _generate_local_deterministic(cleaned_prompt, language, style)
-            fallback["warning"] = f"LLM request failed ({str(e)}). Returned offline fallback."
-            return fallback
-
-    if openai_key:
-        try:
-            return await _generate_with_openai(cleaned_prompt, language, openai_key, style)
-        except Exception as e:
-            logger.warning("OpenAI generation failed (%s); falling back to local generator", e)
-            fallback = _generate_local_deterministic(cleaned_prompt, language, style)
-            fallback["warning"] = f"LLM request failed ({str(e)}). Returned offline fallback."
+            fallback["warning"] = f"Live Gemini request failed ({str(e)}). Returned offline fallback."
             return fallback
 
     # Default: Local High-Fidelity Demo Mode
     return _generate_local_deterministic(cleaned_prompt, language, style)
 
-async def _generate_with_gemini(prompt: str, language: str, api_key: str, style: str) -> Dict[str, Any]:
-    """Invokes Google Gemini API safely via backend HTTP request."""
-    model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-
+async def _generate_with_gemini(prompt: str, language: str, style: str, model: Optional[str] = None) -> Dict[str, Any]:
+    """Invokes Google Gemini via official google-genai SDK."""
+    target_model = model or gemini_service.get_selected_model()
     system_instruction = (
-        f"You are an expert software engineer assistant. Generate clean, robust, idiomatically correct {language} code. "
-        f"Style: {style}. Include comments explaining edge cases, complexity, and a working usage demonstration. "
-        "Return your answer clearly, placing the main source code in Markdown code blocks."
+        f"You are an expert AI software engineer. Generate clean, robust, idiomatically correct {language} code. "
+        f"Architectural style: {style}. Include comments explaining edge cases, algorithmic complexity, and a working usage demonstration. "
+        "Place the main source code in Markdown code blocks (```" + language.lower() + ")."
     )
 
-    payload = {
-        "contents": [
-            {"role": "user", "parts": [{"text": f"{system_instruction}\n\nRequirement: {prompt}"}]}
-        ],
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 2048,
-        }
-    }
+    result = await gemini_service.generate_content_async(
+        prompt=f"Requirement:\n{prompt}\n\nPlease generate the complete implementation in {language}.",
+        system_instruction=system_instruction,
+        model=target_model,
+        temperature=0.2,
+        max_output_tokens=4096
+    )
 
-    async with httpx.AsyncClient(timeout=25.0) as client:
-        resp = await client.post(url, json=payload)
-        resp.raise_for_status()
-        data = resp.json()
-
-    candidates = data.get("candidates", [])
-    if not candidates:
-        raise RuntimeError("No generation candidates returned from Gemini.")
-
-    raw_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+    raw_text = result.get("text", "")
     code = _extract_code_block(raw_text, language)
 
     return {
         "mode": "LIVE AI",
         "provider": "Google Gemini",
-        "model": model,
+        "model": result.get("model", target_model),
         "language": language,
         "code": code,
         "explanation": raw_text,
-        "message": f"Successfully generated using {model}."
+        "message": f"Successfully generated using Google Gemini ({result.get('model', target_model)})."
     }
 
-async def _generate_with_openai(prompt: str, language: str, api_key: str, style: str) -> Dict[str, Any]:
-    """Invokes OpenAI-compatible API safely via backend HTTP request."""
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1") + "/chat/completions"
-
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": f"You are an expert AI software engineer. Generate production-ready {language} code adhering to best practices and {style} style."
-            },
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.2,
-        "max_tokens": 2048
-    }
-
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-
-    async with httpx.AsyncClient(timeout=25.0) as client:
-        resp = await client.post(url, json=payload, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-
-    raw_text = data["choices"][0]["message"]["content"]
-    code = _extract_code_block(raw_text, language)
-
+async def explain_code(code: str, language: str = "python", model: Optional[str] = None) -> Dict[str, Any]:
+    """Generates an architectural and algorithmic explanation of provided source code."""
+    if not gemini_service.is_gemini_configured():
+        return {
+            "mode": "DEMO MODE",
+            "explanation": f"Source code in {language} with {len(code.splitlines())} lines. Configure GEMINI_API_KEY in .env for detailed AI explanation.",
+            "message": "Configure GEMINI_API_KEY for live AI explanation."
+        }
+    system_instruction = f"You are a principal software engineer. Explain this {language} code concisely covering: purpose, algorithmic approach, time/space complexity, and edge cases."
+    result = await gemini_service.generate_content_async(
+        prompt=f"Please analyze and explain this code:\n\n```{language.lower()}\n{code}\n```",
+        system_instruction=system_instruction,
+        model=model
+    )
     return {
         "mode": "LIVE AI",
-        "provider": "OpenAI",
-        "model": model,
-        "language": language,
-        "code": code,
-        "explanation": raw_text,
-        "message": f"Successfully generated using {model}."
+        "provider": "Google Gemini",
+        "model": result.get("model"),
+        "explanation": result.get("text", "")
+    }
+
+async def suggest_improvements(
+    code: str,
+    language: str = "python",
+    focus: Optional[str] = "performance and readability",
+    model: Optional[str] = None
+) -> Dict[str, Any]:
+    """Suggests concrete architectural, performance, and readability improvements."""
+    if not gemini_service.is_gemini_configured():
+        return {
+            "mode": "DEMO MODE",
+            "suggestions": f"Focus: {focus}. Configure GEMINI_API_KEY in .env to receive live AI performance and architecture refactoring suggestions.",
+            "recommendations": f"Focus: {focus}. Configure GEMINI_API_KEY in .env to receive live AI performance and architecture refactoring suggestions.",
+            "message": "Offline demo mode."
+        }
+    system_instruction = f"You are a staff software engineer. Review this {language} code focusing on {focus} and suggest 3-5 concrete refactoring improvements with code snippets."
+    result = await gemini_service.generate_content_async(
+        prompt=f"Please review and suggest improvements for this code with focus on {focus}:\n\n```{language.lower()}\n{code}\n```",
+        system_instruction=system_instruction,
+        model=model
+    )
+    text = result.get("text", "")
+    return {
+        "mode": "LIVE AI",
+        "provider": "Google Gemini",
+        "model": result.get("model"),
+        "suggestions": text,
+        "recommendations": text
     }
 
 def _extract_code_block(text: str, language: str) -> str:

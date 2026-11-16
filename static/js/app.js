@@ -111,7 +111,10 @@ const VIEW_TITLES = {
   testing: 'Automated Testing',
   review: 'Code Reviewer',
   github: 'GitHub Assistant',
-  history: 'Task History'
+  codebase: 'Codebase Intelligence',
+  diff: 'Safe Refactor / Diffs',
+  history: 'Task History',
+  settings: 'Gemini Settings'
 };
 
 function switchView(viewName) {
@@ -139,6 +142,9 @@ function switchView(viewName) {
   // Trigger lazy-load view data
   if (viewName === 'dashboard') loadDashboardData();
   if (viewName === 'history') loadHistoryData();
+  if (viewName === 'codebase') loadCodebaseData();
+  if (viewName === 'diff') loadDiffData();
+  if (viewName === 'settings') loadSettingsData();
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -157,7 +163,7 @@ async function checkSystemHealth() {
       $('topbar-status-badge').innerHTML = '<span class="pulse-dot"></span> System Online';
     }
     if ($('topbar-ai-badge')) {
-      $('topbar-ai-badge').textContent = health.mode || 'Demo Mode';
+      $('topbar-ai-badge').textContent = health.ai_configured ? 'Live Gemini AI' : 'Demo Mode (Offline)';
       $('topbar-ai-badge').className = health.ai_configured ? 'badge badge-purple' : 'badge badge-outline';
     }
 
@@ -166,7 +172,10 @@ async function checkSystemHealth() {
       $('sidebar-engine-name').textContent = health.ai_engine.provider;
     }
     if ($('sidebar-engine-mode')) {
-      $('sidebar-engine-mode').textContent = health.ai_engine.model;
+      $('sidebar-engine-mode').textContent = health.ai_configured ? 'Gemini API Connected' : 'Demo Mode (Offline)';
+    }
+    if ($('sidebar-active-model') && health.active_model) {
+      $('sidebar-active-model').textContent = `Model: ${health.active_model}`;
     }
 
     // Update Mode Badges across app
@@ -504,7 +513,7 @@ void copyBuffer(const char* input) {
     char destination[16];
     // Dangerous unbounded buffer copy
     strcpy(destination, input);
-    
+
     int* ptr = new int[100];
     // Memory leak: ptr is never deleted
 }
@@ -1028,7 +1037,504 @@ window.addEventListener('click', (e) => {
 });
 
 // ==========================================
-// 8. Application Bootstrap
+// 8. Gemini Model Selection & Session Management
+// ==========================================
+
+async function initModelSelector() {
+  try {
+    const info = await api('/api/models');
+    state.models = info.models || [];
+    state.activeModel = info.active_model || 'gemini-2.5-flash';
+
+    const select = $('topbarModelSelect');
+    if (select) {
+      select.innerHTML = '';
+      state.models.forEach((m) => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = `${m.name} (${m.context_window})`;
+        if (m.id === state.activeModel) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      select.onchange = async () => {
+        try {
+          const res = await api('/api/models/select', {
+            method: 'POST',
+            body: JSON.stringify({ model: select.value })
+          });
+          state.activeModel = res.active_model;
+          notify(`Active Gemini model set to ${res.active_model}`, 'success');
+          if ($('sidebar-active-model')) {
+            $('sidebar-active-model').textContent = `Model: ${res.active_model}`;
+          }
+        } catch (e) {
+          notify(e.message, 'error');
+        }
+      };
+    }
+    if ($('sidebar-active-model')) {
+      $('sidebar-active-model').textContent = `Model: ${state.activeModel}`;
+    }
+  } catch (err) {
+    console.error("Failed to load Gemini models:", err);
+  }
+}
+
+// ==========================================
+// 9. Codebase Intelligence Module
+// ==========================================
+
+function initCodebaseModule() {
+  if ($('scanCodebaseBtn')) {
+    $('scanCodebaseBtn').addEventListener('click', scanCodebase);
+  }
+  if ($('traceArchBtn')) {
+    $('traceArchBtn').addEventListener('click', traceArchitecture);
+  }
+  if ($('askCodebaseBtn')) {
+    $('askCodebaseBtn').addEventListener('click', queryCodebase);
+  }
+
+  // Pre-set query chips
+  document.querySelectorAll('.cb-query-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      if ($('codebaseQueryInput')) {
+        $('codebaseQueryInput').value = chip.dataset.q;
+        queryCodebase();
+      }
+    });
+  });
+}
+
+async function loadCodebaseData() {
+  const path = $('codebasePathInput') ? $('codebasePathInput').value.trim() : '.';
+  try {
+    const res = await api(`/api/codebase/status?path=${encodeURIComponent(path)}`);
+    if (res.indexed && res.project) {
+      renderCodebaseStats(res.project);
+    }
+  } catch (e) {
+    // Silent on load
+  }
+}
+
+async function scanCodebase() {
+  const path = $('codebasePathInput') ? $('codebasePathInput').value.trim() : '.';
+  const btn = $('scanCodebaseBtn');
+  if (btn) btn.disabled = true;
+
+  notify('Scanning and indexing codebase chunks...', 'info');
+
+  try {
+    const result = await api('/api/codebase/scan', {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
+
+    renderCodebaseStats(result);
+    notify(`Indexed ${result.file_count} files and ${result.total_chunks} chunks!`, 'success');
+  } catch (err) {
+    notify('Codebase scan failed: ' + err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function renderCodebaseStats(data) {
+  if ($('cbProjectName')) $('cbProjectName').textContent = data.project_name || data.name || 'Project';
+  if ($('cbFileCount')) $('cbFileCount').textContent = data.file_count || 0;
+  if ($('cbSymbolCount')) $('cbSymbolCount').textContent = data.total_symbols || 0;
+  if ($('cbChunkCount')) $('cbChunkCount').textContent = data.total_chunks || 0;
+  if ($('codebaseStatsCard')) $('codebaseStatsCard').classList.remove('hidden');
+}
+
+async function traceArchitecture() {
+  const path = $('codebasePathInput') ? $('codebasePathInput').value.trim() : '.';
+  const btn = $('traceArchBtn');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await api('/api/codebase/architecture', {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
+
+    const box = $('archTraceBox');
+    const content = $('archTraceContent');
+    if (!box || !content) return;
+
+    let html = `<div><strong>Total Files Scanned:</strong> ${res.total_files} | <strong>Classes:</strong> ${res.total_classes} | <strong>Functions:</strong> ${res.total_functions}</div>`;
+
+    html += `<div style="margin-top:10px;"><strong>Key Entry Points:</strong></div><div class="arch-pill-row">`;
+    if (res.entry_points && res.entry_points.length) {
+      res.entry_points.forEach(ep => {
+        html += `<span class="arch-pill">🚀 ${escapeHtml(ep)}</span>`;
+      });
+    } else {
+      html += `<span style="color:var(--text-muted);font-size:12px;">No standard entry point files detected.</span>`;
+    }
+    html += `</div>`;
+
+    html += `<div style="margin-top:10px;"><strong>Top Modules by Symbol Density:</strong></div><ul style="padding-left:18px;margin-top:6px;font-size:13px;">`;
+    (res.top_modules || []).forEach(m => {
+      html += `<li><code>${escapeHtml(m[0])}</code> — ${m[1].functions} function(s), ${m[1].classes} class(es)</li>`;
+    });
+    html += `</ul>`;
+
+    content.innerHTML = html;
+    box.classList.remove('hidden');
+    notify('Architectural topology generated!', 'success');
+  } catch (err) {
+    notify('Failed to trace architecture: ' + err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function queryCodebase() {
+  const path = $('codebasePathInput') ? $('codebasePathInput').value.trim() : '.';
+  const query = $('codebaseQueryInput') ? $('codebaseQueryInput').value.trim() : '';
+  if (!query) {
+    notify('Please enter a question about your codebase.', 'warning');
+    return;
+  }
+
+  const btn = $('askCodebaseBtn');
+  if (btn) btn.disabled = true;
+
+  notify('Retrieving codebase context and asking Gemini...', 'info');
+
+  try {
+    const res = await api('/api/codebase/query', {
+      method: 'POST',
+      body: JSON.stringify({
+        path,
+        query,
+        model: state.activeModel
+      })
+    });
+
+    if ($('cbModelUsed')) {
+      $('cbModelUsed').textContent = res.model_used || (res.ai_generated ? 'Gemini' : 'Offline AST Mode');
+    }
+    if ($('cbAnswerText')) {
+      $('cbAnswerText').textContent = res.answer || 'No response returned.';
+    }
+
+    // Render retrieved chunks
+    const chunksList = $('cbChunksList');
+    if (chunksList) {
+      chunksList.innerHTML = '';
+      (res.relevant_chunks || []).forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'chunk-card';
+        card.innerHTML = `
+          <div class="chunk-header">📄 ${escapeHtml(c.file_path)} (Lines ${c.start_line}-${c.end_line}) [${escapeHtml(c.symbol_type)} ${escapeHtml(c.name || '')}]</div>
+          <pre class="chunk-code"><code>${escapeHtml(c.content)}</code></pre>
+        `;
+        chunksList.appendChild(card);
+      });
+    }
+
+    if ($('codebaseAnswerBox')) {
+      $('codebaseAnswerBox').classList.remove('hidden');
+    }
+
+    if (window.Prism) {
+      Prism.highlightAll();
+    }
+    notify('Grounded codebase answer ready!', 'success');
+  } catch (err) {
+    notify('Codebase query error: ' + err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ==========================================
+// 10. Safe AI Code Modification / Diff Module
+// ==========================================
+
+function initDiffModule() {
+  if ($('proposeDiffBtn')) {
+    $('proposeDiffBtn').addEventListener('click', proposeDiff);
+  }
+  if ($('applyDiffBtn')) {
+    $('applyDiffBtn').addEventListener('click', applyDiff);
+  }
+  if ($('rejectDiffBtn')) {
+    $('rejectDiffBtn').addEventListener('click', rejectDiff);
+  }
+  if ($('rollbackActiveDiffBtn')) {
+    $('rollbackActiveDiffBtn').addEventListener('click', () => {
+      if (state.activeChangeId) rollbackDiff(state.activeChangeId);
+    });
+  }
+}
+
+async function loadDiffData() {
+  try {
+    const items = await api('/api/diff/history');
+    renderDiffHistory(items);
+  } catch (e) {
+    console.error("Failed to load diff history:", e);
+  }
+}
+
+async function proposeDiff() {
+  const filePath = $('diffFilePath') ? $('diffFilePath').value.trim() : '';
+  const instruction = $('diffInstruction') ? $('diffInstruction').value.trim() : '';
+
+  if (!filePath || !instruction) {
+    notify('Target file path and refactoring instructions are required.', 'warning');
+    return;
+  }
+
+  const btn = $('proposeDiffBtn');
+  if (btn) btn.disabled = true;
+
+  notify('Analyzing file and synthesizing unified diff proposal...', 'info');
+
+  try {
+    const res = await api('/api/diff/propose', {
+      method: 'POST',
+      body: JSON.stringify({
+        file_path: filePath,
+        instruction,
+        model: state.activeModel
+      })
+    });
+
+    state.activeChangeId = res.change_id;
+
+    if ($('diffTargetFilename')) $('diffTargetFilename').textContent = res.file_name;
+    if ($('diffExplanationText')) $('diffExplanationText').textContent = res.explanation;
+
+    renderUnifiedDiff(res.unified_diff);
+
+    if ($('diffProposalCard')) $('diffProposalCard').classList.remove('hidden');
+    if ($('diffVerificationBox')) $('diffVerificationBox').classList.add('hidden');
+
+    notify('Refactoring proposal generated. Please review unified diff before approving.', 'success');
+  } catch (err) {
+    notify('Failed to propose changes: ' + err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function renderUnifiedDiff(diffText) {
+  const container = $('unifiedDiffViewer');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const lines = (diffText || '').split('\n');
+  lines.forEach(line => {
+    const row = document.createElement('div');
+    row.className = 'diff-row';
+
+    if (line.startsWith('+++') || line.startsWith('---')) {
+      row.classList.add('meta');
+    } else if (line.startsWith('@@')) {
+      row.classList.add('hunk');
+    } else if (line.startsWith('+')) {
+      row.classList.add('add');
+    } else if (line.startsWith('-')) {
+      row.classList.add('del');
+    }
+    row.textContent = line;
+    container.appendChild(row);
+  });
+}
+
+async function applyDiff() {
+  if (!state.activeChangeId) return;
+  const btn = $('applyDiffBtn');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await api('/api/diff/apply', {
+      method: 'POST',
+      body: JSON.stringify({ change_id: state.activeChangeId })
+    });
+
+    const verifyBox = $('diffVerificationBox');
+    const details = $('diffVerifyDetails');
+    if (verifyBox && details) {
+      details.innerHTML = `
+        <div><strong>Status:</strong> Applied to disk</div>
+        <div><strong>Backup Created:</strong> <code>${escapeHtml(res.backup_path)}</code></div>
+        <div><strong>Syntax Validation:</strong> ${res.test_results && res.test_results.syntax_valid ? '✓ Passed' : '⚠️ Warning'} (${escapeHtml(res.test_results ? res.test_results.message : '')})</div>
+      `;
+      verifyBox.classList.remove('hidden');
+    }
+
+    notify('Changes applied cleanly to disk! Backup created and syntax verified.', 'success');
+    loadDiffData();
+  } catch (err) {
+    notify('Failed to apply diff: ' + err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function rejectDiff() {
+  if (!state.activeChangeId) return;
+  try {
+    await api('/api/diff/reject', {
+      method: 'POST',
+      body: JSON.stringify({ change_id: state.activeChangeId })
+    });
+    notify('Change proposal rejected. File on disk was untouched.', 'info');
+    if ($('diffProposalCard')) $('diffProposalCard').classList.add('hidden');
+    state.activeChangeId = null;
+    loadDiffData();
+  } catch (err) {
+    notify('Failed to reject change: ' + err.message, 'error');
+  }
+}
+
+async function rollbackDiff(changeId) {
+  if (!changeId) return;
+  try {
+    const res = await api('/api/diff/rollback', {
+      method: 'POST',
+      body: JSON.stringify({ change_id: changeId })
+    });
+
+    const verifyBox = $('diffVerificationBox');
+    const details = $('diffVerifyDetails');
+    if (verifyBox && details) {
+      details.innerHTML = `
+        <div style="color:#b91c1c;"><strong>Status:</strong> Rolled Back</div>
+        <div><strong>Restored From:</strong> <code>${escapeHtml(res.restored_from)}</code></div>
+        <div><strong>Syntax Validation:</strong> ${res.test_results && res.test_results.syntax_valid ? '✓ Verified OK' : 'Check file'}</div>
+      `;
+    }
+    notify('Original file restored successfully from backup!', 'success');
+    loadDiffData();
+  } catch (err) {
+    notify('Rollback failed: ' + err.message, 'error');
+  }
+}
+
+function renderDiffHistory(items) {
+  const container = $('diffHistoryTable');
+  if (!container) return;
+
+  if (!items || !items.length) {
+    container.innerHTML = '<div class="empty-state">No changes recorded yet.</div>';
+    return;
+  }
+
+  let html = `
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>File Path</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  items.forEach(item => {
+    let statusBadge = '<span class="badge badge-outline">Pending</span>';
+    if (item.status === 'applied') statusBadge = '<span class="badge badge-success">Applied</span>';
+    if (item.status === 'rejected') statusBadge = '<span class="badge badge-danger">Rejected</span>';
+    if (item.status === 'rolled_back') statusBadge = '<span class="badge badge-purple">Rolled Back</span>';
+
+    const canRollback = item.status === 'applied';
+
+    html += `
+      <tr>
+        <td style="font-size:12px;color:var(--text-muted);">${formatDate(item.created_at)}</td>
+        <td style="font-family:var(--font-mono);font-size:12px;">${escapeHtml(item.file_path)}</td>
+        <td>${statusBadge}</td>
+        <td>
+          ${canRollback ? `<button class="button button-sm button-outline button-danger" onclick="rollbackDiff('${item.id}')">Rollback</button>` : '-'}
+        </td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+// ==========================================
+// 11. Gemini Settings Module
+// ==========================================
+
+function initSettingsModule() {
+  // Setup if needed
+}
+
+async function loadSettingsData() {
+  try {
+    const health = await api('/api/health');
+    const modelsInfo = await api('/api/models');
+
+    // Key status banner
+    const dot = $('settingsKeyDot');
+    const title = $('settingsKeyTitle');
+    const msg = $('settingsKeyMessage');
+
+    if (health.ai_configured) {
+      if (dot) dot.className = 'status-dot green';
+      if (title) title.textContent = 'Google Gemini API Key Configured';
+      if (msg) msg.textContent = `Provider: ${health.ai_engine.provider} | Active Model: ${health.active_model} | All AI features are running in live cloud mode.`;
+    } else {
+      if (dot) dot.className = 'status-dot orange';
+      if (title) title.textContent = 'Gemini API Key Missing (Demo / Offline Mode Active)';
+      if (msg) msg.textContent = 'The application is running safely with local AST analyzers and deterministic algorithms. Add GEMINI_API_KEY to your .env file to enable live Gemini AI.';
+    }
+
+    // Models Table
+    const tbody = $('modelsTableBody');
+    if (tbody && modelsInfo.models) {
+      tbody.innerHTML = '';
+      modelsInfo.models.forEach(m => {
+        const isCurrent = m.id === modelsInfo.active_model;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(m.name)}</strong><br><code style="font-size:11px;color:var(--text-muted);">${escapeHtml(m.id)}</code></td>
+          <td><span class="model-badge-chip">${escapeHtml(m.badge)}</span></td>
+          <td style="font-family:var(--font-mono);">${escapeHtml(m.context_window)}</td>
+          <td style="color:var(--text-secondary);">${escapeHtml(m.description)}</td>
+          <td>
+            ${isCurrent ? '<span class="badge badge-success">✓ Active</span>' : `<button class="button button-sm button-outline" onclick="activateModel('${m.id}')">Activate</button>`}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  } catch (err) {
+    console.error("Settings load error:", err);
+  }
+}
+
+async function activateModel(modelId) {
+  try {
+    const res = await api('/api/models/select', {
+      method: 'POST',
+      body: JSON.stringify({ model: modelId })
+    });
+    state.activeModel = res.active_model;
+    const select = $('topbarModelSelect');
+    if (select) select.value = res.active_model;
+    notify(`Switched active model to ${res.active_model}`, 'success');
+    loadSettingsData();
+  } catch (err) {
+    notify('Failed to activate model: ' + err.message, 'error');
+  }
+}
+
+// ==========================================
+// 12. Application Bootstrap
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1052,11 +1558,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initialize Modules
+  initModelSelector();
   initGeneratorModule();
   initTestingModule();
   initReviewerModule();
   initGitHubModule();
+  initCodebaseModule();
+  initDiffModule();
   initHistoryModule();
+  initSettingsModule();
 
   // Check health and load telemetry
   checkSystemHealth();

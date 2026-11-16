@@ -162,6 +162,69 @@ def generate_test_suite(code: str) -> Dict[str, Any]:
         "generated_tests": "".join(test_cases_code)
     }
 
+def generate_tests_ai(code: str, language: str = "python", framework: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Generates comprehensive, edge-case-aware unit tests using Google Gemini.
+    Falls back to deterministic AST generation if Gemini is not configured or if generation fails.
+    """
+    from services import gemini_service
+
+    if gemini_service.is_gemini_configured():
+        prompt = f"""You are a senior QA and testing automation engineer.
+Analyze the following {language} code and generate a comprehensive unit test suite:
+
+```{language}
+{code}
+```
+
+Requirements:
+1. Cover standard execution paths, boundary values, invalid inputs, edge cases (zero, empty, None/null), and exception handling.
+2. For Python, use standard `unittest` format without external dependencies.
+3. Do NOT import disallowed system modules (os, sys, subprocess, socket, shutil).
+4. Provide clean, executable test code inside a single code block (```{language} ... ```).
+5. Add brief docstrings to each test method explaining what it tests.
+"""
+        system_instruction = "You are a master QA engineer creating production-grade, secure unit tests."
+        try:
+            res = gemini_service.generate_content(
+                prompt=prompt,
+                model=model,
+                system_instruction=system_instruction,
+                temperature=0.2
+            )
+            raw_text = res.get("text", "")
+            import re
+            match = re.search(r"```(?:\w+)?\n([\s\S]*?)```", raw_text)
+            test_code = match.group(1).rstrip() if match else raw_text
+
+            # Perform AST safety audit on generated test code
+            if language.lower() == "python":
+                is_safe, violations = audit_code_safety(test_code)
+                if not is_safe:
+                    logger.warning("AI-generated test code contained security violations, falling back to AST: %s", violations)
+                    fallback = generate_test_suite(code)
+                    fallback["ai_generated"] = False
+                    fallback["note"] = "AI output triggered security guardrail; safe AST test suite used."
+                    return fallback
+
+            return {
+                "success": True,
+                "ai_generated": True,
+                "model_used": res.get("model"),
+                "generated_tests": test_code,
+                "language": language,
+                "message": f"Successfully generated unit tests using Gemini ({res.get('model')})."
+            }
+        except Exception as e:
+            logger.warning("Gemini test generation failed: %s; falling back to AST", e)
+
+    # Fallback to deterministic AST generation
+    fallback = generate_test_suite(code)
+    fallback["ai_generated"] = False
+    fallback["model_used"] = None
+    fallback["message"] = "Generated deterministic unit tests using AST analyzer (Gemini offline)."
+    return fallback
+
 def run_tests_isolated(code: str, test_code: Optional[str] = None, allow_execution: bool = True) -> Dict[str, Any]:
     """
     Safely executes unit tests in an isolated child process with strict resource & time limits.

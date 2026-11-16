@@ -7,6 +7,8 @@
   <meta name="description" content="AI Software Engineering Copilot — A modern developer assistant for code generation, automated testing, static reviews, and repository exploration.">
   <title>AI Software Engineering Copilot</title>
   <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -53,6 +55,20 @@
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span>Task History</span>
         </button>
+
+        <div class="nav-section-label" style="margin-top: 14px;">INTELLIGENCE & TOOLS</div>
+        <button class="nav-item" data-view="codebase" id="nav-codebase">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><polyline points="10 8 13 11 10 14"/></svg>
+          <span>Codebase Intelligence</span>
+        </button>
+        <button class="nav-item" data-view="diff" id="nav-diff">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+          <span>Safe Refactor / Diffs</span>
+        </button>
+        <button class="nav-item" data-view="settings" id="nav-settings">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Gemini Settings</span>
+        </button>
       </nav>
 
       <!-- Sidebar Environment Card -->
@@ -60,16 +76,16 @@
         <div class="env-card">
           <div class="env-card-header">
             <span class="status-dot green"></span>
-            <span class="env-title" id="sidebar-engine-name">Local Engine</span>
+            <span class="env-title" id="sidebar-engine-name">Gemini Edition</span>
           </div>
           <div class="env-details" id="sidebar-engine-mode">Demo Mode (Offline)</div>
-          <div class="env-subtext">SQLite Database: Connected</div>
+          <div class="env-subtext" id="sidebar-active-model">Model: gemini-2.5-flash</div>
         </div>
         <div class="developer-profile">
           <div class="avatar-badge">DEV</div>
           <div class="profile-info">
             <span class="profile-name">Student Developer</span>
-            <span class="profile-role">Local Workspace</span>
+            <span class="profile-role">Windows • Python 3.11</span>
           </div>
         </div>
       </div>
@@ -91,6 +107,18 @@
         </div>
 
         <div class="topbar-right">
+          <!-- User-Selectable Gemini Model Dropdown -->
+          <div class="topbar-model-wrap">
+            <span class="model-select-badge">✨ Gemini:</span>
+            <select id="topbarModelSelect" class="topbar-select" title="Active Google Gemini Model">
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+            </select>
+          </div>
+
           <span class="badge badge-success" id="topbar-status-badge">
             <span class="pulse-dot"></span> System Online
           </span>
@@ -665,6 +693,246 @@
           </div>
         </section>
 
+        <!-- ========================================== -->
+        <!-- 7. CODEBASE INTELLIGENCE VIEW              -->
+        <!-- ========================================== -->
+        <section class="view" id="view-codebase">
+          <div class="view-header">
+            <div>
+              <span class="view-eyebrow">RAG & REPOSITORY REASONING</span>
+              <h1 class="view-title">Codebase Intelligence</h1>
+              <p class="view-description">Index local projects, extract AST structures, trace architecture, and query your repository with grounded Gemini responses.</p>
+            </div>
+            <span class="badge badge-purple" id="codebaseEmbeddingBadge">Vector Retrieval</span>
+          </div>
+
+          <!-- Codebase Path Input Card -->
+          <div class="card workspace-card">
+            <div class="repo-input-bar">
+              <input type="text" id="codebasePathInput" class="form-input" placeholder="Path to local codebase (e.g., . or C:\Projects\MyRepo)" value=".">
+              <button class="button button-primary" id="scanCodebaseBtn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                Scan & Index Codebase
+              </button>
+              <button class="button button-outline" id="traceArchBtn">
+                🏛️ Trace Architecture
+              </button>
+            </div>
+            <p class="helper-text">Extracts AST symbols, filters out virtual environments (.venv) and build directories, creates semantic chunks, and builds persistent embeddings.</p>
+
+            <!-- Codebase Status / Stats Banner -->
+            <div id="codebaseStatsCard" class="codebase-stats-grid hidden">
+              <div class="stat-box">
+                <span class="stat-label">Project Name</span>
+                <span class="stat-value" id="cbProjectName">-</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Indexed Files</span>
+                <span class="stat-value" id="cbFileCount">0</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">AST Symbols</span>
+                <span class="stat-value" id="cbSymbolCount">0</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Search Chunks</span>
+                <span class="stat-value" id="cbChunkCount">0</span>
+              </div>
+            </div>
+
+            <!-- Architecture Trace Result Box -->
+            <div id="archTraceBox" class="result-box hidden" style="margin-top: 16px;">
+              <div class="section-title-wrap">
+                <h3 class="section-title">Architectural Topology</h3>
+                <span class="section-subtitle" id="archTraceSubtitle">Entry points & Key Modules</span>
+              </div>
+              <div id="archTraceContent" class="arch-content"></div>
+            </div>
+
+            <!-- Grounded RAG Q&A Container -->
+            <div class="codebase-qa-section" style="margin-top: 24px;">
+              <div class="section-title-wrap">
+                <h3 class="section-title">Ask Your Codebase</h3>
+                <span class="section-subtitle">Answers are grounded in actual files, functions, and lines</span>
+              </div>
+
+              <!-- Question presets -->
+              <div class="preset-container" style="margin-bottom: 12px;">
+                <span class="preset-label">Example queries:</span>
+                <button class="preset-chip cb-query-chip" data-q="Where is database initialization implemented?">Where is database initialization implemented?</button>
+                <button class="preset-chip cb-query-chip" data-q="Explain how code review and security audits work.">Explain how code review and security audits work.</button>
+                <button class="preset-chip cb-query-chip" data-q="How is test generation handled?">How is test generation handled?</button>
+              </div>
+
+              <div class="repo-input-bar">
+                <input type="text" id="codebaseQueryInput" class="form-input" placeholder="Ask a question about this repository's implementation, call chains, or data flow...">
+                <button class="button button-primary" id="askCodebaseBtn">
+                  <span>✨</span> Ask Gemini
+                </button>
+              </div>
+
+              <!-- Q&A Answer Box -->
+              <div id="codebaseAnswerBox" class="result-box hidden" style="margin-top: 16px;">
+                <div class="response-header">
+                  <span class="response-title">Grounded Answer</span>
+                  <span class="badge badge-outline" id="cbModelUsed">Gemini</span>
+                </div>
+                <div class="qa-answer-markdown" id="cbAnswerText"></div>
+
+                <!-- Relevant Chunks Accordion -->
+                <div class="qa-chunks-wrap" style="margin-top: 16px;">
+                  <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">Retrieved Source Evidence:</h4>
+                  <div id="cbChunksList" class="chunks-accordion"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 8. SAFE AI CODE MODIFICATION / DIFF VIEW   -->
+        <!-- ========================================== -->
+        <section class="view" id="view-diff">
+          <div class="view-header">
+            <div>
+              <span class="view-eyebrow">SAFE REFACTORING WORKFLOW</span>
+              <h1 class="view-title">Safe AI Code Modification</h1>
+              <p class="view-description">Propose refactoring, review visual unified diffs, require explicit user approval before disk writes, create timestamped backups, and rollback anytime.</p>
+            </div>
+            <span class="badge badge-success">Atomic Backups + Rollback</span>
+          </div>
+
+          <div class="card workspace-card">
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label for="diffFilePath" class="form-label">Target File Path</label>
+                <input type="text" id="diffFilePath" class="form-input" placeholder="e.g. services/ai_service.py" value="main.py">
+                <span class="field-hint">Existing editable source file within your workspace.</span>
+              </div>
+              <div class="form-group">
+                <label for="diffInstruction" class="form-label">Refactoring / Change Instructions</label>
+                <input type="text" id="diffInstruction" class="form-input" placeholder="e.g. Add comprehensive docstrings and type annotations" value="Add documentation comment to top of file">
+                <span class="field-hint">Describe what Gemini should refactor or add.</span>
+              </div>
+            </div>
+
+            <div style="margin-top: 16px; display: flex; gap: 12px;">
+              <button class="button button-primary" id="proposeDiffBtn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/></svg>
+                Propose Modification (No Disk Write)
+              </button>
+            </div>
+
+            <!-- Proposed Diff Container -->
+            <div id="diffProposalCard" class="result-box hidden" style="margin-top: 20px;">
+              <div class="diff-header-bar">
+                <div>
+                  <h3 class="diff-title" id="diffTargetFilename">file.py</h3>
+                  <span class="diff-explanation" id="diffExplanationText">AI proposed modification</span>
+                </div>
+                <div class="diff-actions">
+                  <button class="button button-success" id="applyDiffBtn">
+                    ✓ Approve & Apply Changes
+                  </button>
+                  <button class="button button-danger" id="rejectDiffBtn">
+                    ✗ Reject Proposal
+                  </button>
+                </div>
+              </div>
+
+              <!-- Visual Unified Diff Viewer -->
+              <div class="unified-diff-container" id="unifiedDiffViewer"></div>
+
+              <!-- Post-Apply Verification Status -->
+              <div id="diffVerificationBox" class="diff-verification-box hidden">
+                <div class="verify-status-title">Execution & Verification Report:</div>
+                <div class="verify-details" id="diffVerifyDetails"></div>
+                <button class="button button-sm button-outline button-danger" id="rollbackActiveDiffBtn" style="margin-top: 8px;">
+                  ⏪ Rollback Changes to Backup
+                </button>
+              </div>
+            </div>
+
+            <!-- Diff Modification History -->
+            <div style="margin-top: 32px;">
+              <div class="section-title-wrap">
+                <h3 class="section-title">Modification Audit Trail</h3>
+                <span class="section-subtitle">Pending, applied, and rolled-back proposals</span>
+              </div>
+              <div id="diffHistoryTable" class="history-table-wrapper" style="margin-top: 12px;">
+                <div class="empty-state">No changes recorded yet.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 9. GEMINI SETTINGS VIEW                    -->
+        <!-- ========================================== -->
+        <section class="view" id="view-settings">
+          <div class="view-header">
+            <div>
+              <span class="view-eyebrow">CONFIGURATION & MODELS</span>
+              <h1 class="view-title">Gemini Settings</h1>
+              <p class="view-description">Configure your Google Gemini API settings, view supported models, and inspect sandbox isolation parameters.</p>
+            </div>
+            <span class="badge badge-blue">Google GenAI SDK</span>
+          </div>
+
+          <!-- API Key Status Card -->
+          <div class="card workspace-card">
+            <h3 class="section-title">API Key Configuration</h3>
+            <div class="api-status-banner" id="settingsKeyBanner">
+              <div class="status-indicator-wrap">
+                <span class="status-dot green" id="settingsKeyDot"></span>
+                <span id="settingsKeyTitle">Checking API Key...</span>
+              </div>
+              <p id="settingsKeyMessage" class="settings-desc"></p>
+            </div>
+
+            <div class="setup-instruction-box">
+              <h4>How to configure your API key:</h4>
+              <ol class="setup-steps">
+                <li>Get an API key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Google AI Studio</a>.</li>
+                <li>Open your local <code>.env</code> file in the project root (see <code>.env.example</code>).</li>
+                <li>Set: <code>GEMINI_API_KEY=your_actual_gemini_api_key_here</code></li>
+                <li>Restart the server. All AI operations will instantly switch to live Gemini mode!</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- Supported Models Card -->
+          <div class="card workspace-card" style="margin-top: 20px;">
+            <div class="section-title-wrap">
+              <h3 class="section-title">Supported Gemini Models</h3>
+              <span class="section-subtitle">Select and set your preferred model for this session</span>
+            </div>
+            <div class="models-table-wrap">
+              <table class="models-table" id="modelsTable">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Badge</th>
+                    <th>Context Window</th>
+                    <th>Description</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="modelsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Subprocess Sandbox Disclaimer Card -->
+          <div class="card workspace-card" style="margin-top: 20px;">
+            <h3 class="section-title">🛡️ Execution Safeguards & Sandbox Disclaimer</h3>
+            <div class="disclaimer-callout">
+              <p><strong>Educational Process Isolation Notice:</strong></p>
+              <p>The automated testing engine executes code in a dedicated local child process with timeouts (5.0s) and static AST security auditing (blocking system module imports such as <code>os</code>, <code>sys</code>, and <code>subprocess</code>). This provides local process isolation for educational development, not a hypervisor virtual machine or military-grade hardware sandbox. Do not run untrusted or adversarial payloads.</p>
+            </div>
+          </div>
+        </section>
+
       </main>
 
       <!-- App Footer -->
@@ -695,6 +963,10 @@
       </div>
     </div>
   </div>
+
+  <!-- Prism.js Syntax Highlighting -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
   <!-- Application Client-side JavaScript -->
   <script src="/static/js/app.js" defer></script>

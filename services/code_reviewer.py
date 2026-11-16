@@ -9,14 +9,14 @@ import os
 import re
 import logging
 from typing import Dict, Any, List, Optional
-import httpx
-
-logger = logging.getLogger("copilot.code_reviewer")
+# Import Gemini service
+from . import gemini_service
 
 def review_code(code: str, language: str) -> Dict[str, Any]:
     """
     Main review function. Executes deep rule-based static analysis
     and produces structured findings with severity, line numbers, and fixes.
+    Synchronous entrypoint for deterministic tests and offline analysis.
     """
     cleaned_code = code.strip()
     if not cleaned_code:
@@ -71,6 +71,52 @@ def review_code(code: str, language: str) -> Dict[str, Any]:
         "summary": f"Analyzed {metrics['total_lines']} lines of {language}. Found {len(findings)} items across security, reliability, and code style.",
         "message": provider_note
     }
+
+async def review_code_enhanced(code: str, language: str, model: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Enhanced review function. Executes deterministic static analysis first,
+    then queries Google Gemini via the official SDK for deep semantic analysis
+    if GEMINI_API_KEY is configured.
+    """
+    base_result = review_code(code, language)
+    if not gemini_service.is_gemini_configured() or not code.strip():
+        return base_result
+
+    target_model = model or gemini_service.get_selected_model()
+    try:
+        system_instruction = (
+            f"You are a staff security and software reliability engineer reviewing {language} code. "
+            "Identify subtle bugs, memory/resource leaks, concurrency risks, and performance bottlenecks. "
+            "Respond in clear, structured format with concrete actionable recommendations."
+        )
+
+        prompt = (
+            f"Source Code ({language}):\n```{language.lower()}\n{code[:8000]}\n```\n\n"
+            f"Static Analysis Findings ({len(base_result['findings'])} items detected by AST scanner):\n"
+            + "\n".join([f"- [{f['severity']}] {f['title']}" for f in base_result['findings'][:5]])
+            + "\n\nPlease provide your deep semantic review, highlighting critical bug risks, architecture improvements, and educational guidance."
+        )
+
+        ai_resp = await gemini_service.generate_content(
+            prompt=prompt,
+            system_instruction=system_instruction,
+            model=target_model,
+            temperature=0.2,
+            max_output_tokens=3000
+        )
+
+        ai_text = ai_resp.get("text", "")
+        base_result["mode"] = f"HYBRID (STATIC AST + GEMINI {target_model.upper()})"
+        base_result["is_llm"] = True
+        base_result["ai_review"] = ai_text
+        base_result["ai_model"] = target_model
+        base_result["message"] = f"Audited with Static AST rules + Google Gemini ({target_model})."
+
+        return base_result
+    except Exception as e:
+        logger.warning("Gemini semantic review failed (%s): %s", target_model, e)
+        base_result["ai_error"] = str(e)
+        return base_result
 
 def _check_security(code: str, language: str, findings: List[Dict[str, Any]]):
     """Detects security vulnerabilities and secret leaks."""

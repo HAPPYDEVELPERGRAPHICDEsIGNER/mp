@@ -233,6 +233,106 @@ def _generate_pr_review_checklist(title: str, body: str) -> Dict[str, Any]:
         "recommended_verdict": "Requires Manual Code Verification" if not has_test_mention else "Ready for Review"
     }
 
+def analyze_repo_with_gemini(repo_meta: Dict[str, Any], readme_text: str = "", model: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Produces an intelligent architectural summary and engineering health assessment
+    for a GitHub repository using Google Gemini.
+    """
+    from services import gemini_service
+
+    if not gemini_service.is_gemini_configured():
+        return {
+            "ai_generated": False,
+            "model_used": None,
+            "summary": f"Repository '{repo_meta.get('repository')}' has {repo_meta.get('stars', 0)} stars, primary language {repo_meta.get('language')}.",
+            "message": "Configure GEMINI_API_KEY to unlock AI architectural insights and deep analysis."
+        }
+
+    prompt = f"""You are a software architect reviewing an open-source GitHub repository.
+Metadata:
+- Name: {repo_meta.get('repository')}
+- Description: {repo_meta.get('description')}
+- Language: {repo_meta.get('language')}
+- Stars: {repo_meta.get('stars')}
+- License: {repo_meta.get('license')}
+
+README Preview:
+{readme_text[:3000]}
+
+Provide a concise, 3-section architectural summary:
+1. Core Architecture & Tech Stack
+2. Engineering Strengths & Production Readiness
+3. Recommended Enhancements or Gaps
+"""
+    system_instruction = "You are a pragmatic, experienced software architect assessing codebases."
+    try:
+        res = gemini_service.generate_content(
+            prompt=prompt,
+            model=model,
+            system_instruction=system_instruction,
+            temperature=0.3
+        )
+        return {
+            "ai_generated": True,
+            "model_used": res.get("model"),
+            "summary": res.get("text", ""),
+            "message": f"Generated architectural analysis via Gemini ({res.get('model')})."
+        }
+    except Exception as e:
+        logger.warning("Gemini repo analysis failed: %s", e)
+        return {
+            "ai_generated": False,
+            "model_used": None,
+            "summary": "AI synthesis temporarily unavailable.",
+            "error": str(e)
+        }
+
+def review_pr_with_gemini(pr_title: str, pr_body: str, diff_text: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Conducts a detailed Pull Request review using Google Gemini.
+    """
+    from services import gemini_service
+
+    if not gemini_service.is_gemini_configured():
+        return {
+            "ai_generated": False,
+            "model_used": None,
+            "analysis": _generate_pr_review_checklist(pr_title, pr_body)
+        }
+
+    diff_section = f"Diff Snippet:\n{diff_text[:3000]}\n" if diff_text else ""
+    prompt = f"""You are a senior tech lead conducting a Pull Request review.
+PR Title: {pr_title}
+PR Description:
+{pr_body[:2000]}
+
+{diff_section}
+Provide a constructive code review covering:
+1. Intent & Scope Alignment
+2. Risk Assessment (breaking changes, edge cases, regression risk)
+3. Test Coverage Requirements
+4. Recommended Approval Verdict (Approve, Request Changes, or Needs Manual Test)
+"""
+    try:
+        res = gemini_service.generate_content(
+            prompt=prompt,
+            model=model,
+            system_instruction="You are a senior software engineer conducting a thorough code review.",
+            temperature=0.2
+        )
+        return {
+            "ai_generated": True,
+            "model_used": res.get("model"),
+            "review": res.get("text", "")
+        }
+    except Exception as e:
+        logger.warning("Gemini PR review failed: %s", e)
+        return {
+            "ai_generated": False,
+            "model_used": None,
+            "analysis": _generate_pr_review_checklist(pr_title, pr_body)
+        }
+
 def _check_status(resp: httpx.Response):
     """Translates HTTP error codes to helpful user-facing errors."""
     if resp.status_code == 200:

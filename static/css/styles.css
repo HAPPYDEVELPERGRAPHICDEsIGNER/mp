@@ -1851,3 +1851,323 @@ input:checked + .slider:before {
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   Gemini Edition Enhancements
+   ========================================================================== */
+
+/* Topbar Model Selector */
+.topbar-model-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-elevated);
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.model-select-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--purple);
+}
+
+.topbar-select {
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  outline: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+/* Codebase Intelligence Stats Grid */
+.codebase-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+  padding: 16px;
+  background-color: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: var(--font-mono);
+}
+
+/* Architecture Topology Box */
+.arch-content {
+  background-color: var(--bg-card);
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.arch-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.arch-pill {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* Q&A Grounded Answer */
+.qa-answer-markdown {
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-sans);
+}
+
+.chunks-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chunk-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+
+.chunk-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  font-family: var(--font-mono);
+  margin-bottom: 6px;
+}
+
+.chunk-code {
+  background-color: #111827;
+  color: #e5e7eb;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-x: auto;
+  max-height: 180px;
+}
+
+/* Unified Diff Viewer */
+.diff-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.diff-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+  font-family: var(--font-mono);
+}
+
+.diff-explanation {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.diff-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.unified-diff-container {
+  background-color: #111827;
+  color: #f3f4f6;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 12px 0;
+  border-radius: var(--radius-md);
+  max-height: 480px;
+  overflow-y: auto;
+  border: 1px solid #374151;
+}
+
+.diff-row {
+  display: flex;
+  padding: 2px 14px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.diff-row.add {
+  background-color: rgba(16, 185, 129, 0.22);
+  color: #34d399;
+}
+
+.diff-row.del {
+  background-color: rgba(239, 68, 68, 0.22);
+  color: #f87171;
+}
+
+.diff-row.hunk {
+  background-color: rgba(99, 102, 241, 0.18);
+  color: #818cf8;
+  font-weight: 600;
+}
+
+.diff-row.meta {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.diff-verification-box {
+  margin-top: 16px;
+  padding: 14px 18px;
+  background-color: var(--success-light);
+  border: 1px solid #a7f3d0;
+  border-radius: var(--radius-md);
+}
+
+.verify-status-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #065f46;
+  margin-bottom: 4px;
+}
+
+.verify-details {
+  font-size: 13px;
+  color: #047857;
+  font-family: var(--font-mono);
+}
+
+/* Settings View Styles */
+.api-status-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  margin-top: 12px;
+}
+
+.status-indicator-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.setup-instruction-box {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: var(--primary-light);
+  border-radius: var(--radius-md);
+  border: 1px solid #bfdbfe;
+}
+
+.setup-instruction-box h4 {
+  font-size: 14px;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.setup-steps {
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.setup-steps code {
+  background-color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  color: var(--primary);
+  font-size: 12px;
+}
+
+.models-table-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.models-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.models-table th, .models-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.models-table th {
+  background-color: var(--bg-elevated);
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.model-badge-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  background-color: var(--purple-light);
+  color: var(--purple);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.disclaimer-callout {
+  padding: 14px 18px;
+  background-color: var(--warning-light);
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: #92400e;
+  line-height: 1.6;
+}

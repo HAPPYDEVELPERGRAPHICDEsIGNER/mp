@@ -30,7 +30,15 @@ from database.models import (
     clear_all_tasks,
     get_dashboard_stats
 )
-from services import ai_service, testing_service, code_reviewer, github_service
+from services import (
+    ai_service,
+    testing_service,
+    code_reviewer,
+    github_service,
+    gemini_service
+)
+from services.codebase_service import codebase_service
+from services.diff_service import diff_service
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -52,9 +60,9 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down AI Software Engineering Copilot.")
 
 app = FastAPI(
-    title="AI Software Engineering Copilot",
-    description="Local-first AI developer assistant dashboard for code generation, testing, reviews, and repository exploration.",
-    version="1.0.0",
+    title="AI Software Engineering Copilot — Gemini Edition",
+    description="Local-first developer dashboard with Google Gemini AI, Codebase Intelligence, and Safe Refactoring.",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -70,13 +78,17 @@ templates_path.mkdir(parents=True, exist_ok=True)
 # Pydantic Request Schemas
 # ==========================================
 
+class ModelSelectRequest(BaseModel):
+    model: str = Field(..., description="Gemini model ID to activate")
+
 class GenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=4, max_length=5000, description="Programming requirement description")
     language: str = Field(..., pattern="^(Python|C\\+\\+|Java|JavaScript)$", description="Target programming language")
     style: Optional[str] = Field("standard", description="Architectural style (standard, oop, microservice)")
 
 class TestSuiteRequest(BaseModel):
-    code: str = Field(..., min_length=2, max_length=30000, description="Python source code to generate tests for")
+    code: str = Field(..., min_length=2, max_length=30000, description="Source code to generate tests for")
+    model: Optional[str] = Field(None, description="Optional Gemini model override")
 
 class TestRunRequest(BaseModel):
     code: str = Field(..., min_length=2, max_length=30000, description="Python source code to test")
@@ -93,6 +105,33 @@ class GitHubInspectRequest(BaseModel):
 class GitHubFileRequest(BaseModel):
     url: str = Field(..., min_length=10, max_length=300, description="Public GitHub repository URL")
     path: str = Field(..., min_length=1, max_length=500, description="Path to file within repository")
+
+class CodebaseScanRequest(BaseModel):
+    path: str = Field(..., min_length=1, max_length=1000, description="Local codebase directory path")
+
+class CodebaseQueryRequest(BaseModel):
+    path: str = Field(..., min_length=1, max_length=1000, description="Local codebase directory path")
+    query: str = Field(..., min_length=2, max_length=2000, description="Question about the codebase")
+    model: Optional[str] = Field(None, description="Optional Gemini model override")
+
+class DiffProposeRequest(BaseModel):
+    file_path: str = Field(..., min_length=1, max_length=1000, description="Path to file to modify")
+    instruction: str = Field(..., min_length=2, max_length=3000, description="Refactoring or modification instructions")
+    model: Optional[str] = Field(None, description="Optional Gemini model override")
+
+class DiffActionRequest(BaseModel):
+    change_id: str = Field(..., min_length=5, max_length=100, description="Pending change UUID")
+
+class ExplainCodeRequest(BaseModel):
+    code: str = Field(..., min_length=2, max_length=30000, description="Code snippet to explain")
+    language: Optional[str] = Field("python", description="Programming language")
+    model: Optional[str] = Field(None, description="Optional Gemini model override")
+
+class ImproveCodeRequest(BaseModel):
+    code: str = Field(..., min_length=2, max_length=30000, description="Code snippet to improve")
+    language: Optional[str] = Field("python", description="Programming language")
+    focus: Optional[str] = Field("performance and readability", description="Optimization goal")
+    model: Optional[str] = Field(None, description="Optional Gemini model override")
 
 # ==========================================
 # Frontend Page Routes
@@ -118,15 +157,35 @@ async def health_check():
     return {
         "status": "online",
         "mode": "LIVE AI" if is_ai else "DEMO MODE",
-        "app_name": "AI Software Engineering Copilot",
-        "version": "1.0.0",
+        "app_name": "AI Software Engineering Copilot — Gemini Edition",
+        "version": "2.0.0",
         "ai_configured": is_ai,
         "ai_engine": ai_info,
+        "active_model": gemini_service.get_selected_model(),
         "database_file": str(get_db_path()),
         "isolated_sandbox_available": True,
         "execution_enabled": True,
-        "github_token_configured": bool(os.getenv("GITHUB_TOKEN"))
+        "github_token_configured": bool(os.getenv("GITHUB_TOKEN")),
+        "notice": "Process execution is run in a local subprocess with AST safety checks. It is process isolation, not a hypervisor VM."
     }
+
+@app.get("/api/models")
+async def get_models_endpoint():
+    """Returns available Gemini models and active selection status."""
+    return gemini_service.get_models_info()
+
+@app.post("/api/models/select")
+async def select_model_endpoint(body: ModelSelectRequest):
+    """Sets the active Gemini model for the user session."""
+    try:
+        active = gemini_service.set_selected_model(body.model)
+        return {
+            "success": True,
+            "active_model": active,
+            "message": f"Active model set to '{active}'"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # ==========================================
 # 1. Dashboard Metrics API
@@ -173,11 +232,11 @@ async def generate_code_endpoint(body: GenerateRequest):
 
 @app.post("/api/test/generate-tests")
 async def generate_tests_endpoint(body: TestSuiteRequest):
-    """Inspects Python code via AST and synthesizes a runnable unittest test suite."""
+    """Inspects code via AST or Gemini and synthesizes a runnable unittest test suite."""
     try:
-        res = testing_service.generate_test_suite(body.code)
-        if not res["success"]:
-            raise HTTPException(status_code=400, detail=res["error"])
+        res = testing_service.generate_tests_ai(body.code, language="python", model=body.model)
+        if not res.get("success", False):
+            raise HTTPException(status_code=400, detail=res.get("error", "Failed to generate tests"))
         return res
     except HTTPException:
         raise
@@ -221,7 +280,7 @@ async def test_endpoint_alias(body: TestRunRequest):
 async def review_code_endpoint(body: CodeReviewRequest):
     """Analyzes source code for security, bug risks, readability, and maintainability."""
     try:
-        result = code_reviewer.review_code(body.code, body.language)
+        result = await code_reviewer.review_code_enhanced(body.code, body.language)
         task = save_task(
             module="review",
             title=f"{body.language} Code Review (Score: {result['score']}/100)",
@@ -234,6 +293,172 @@ async def review_code_endpoint(body: CodeReviewRequest):
     except Exception as e:
         logger.exception("Code review failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Code review failed: {str(e)}")
+
+# ==========================================
+# 5. AI Code Explanation & Improvement API
+# ==========================================
+
+@app.post("/api/explain")
+async def explain_code_endpoint(body: ExplainCodeRequest):
+    """Explains logic, algorithms, and complexity of a code snippet using Gemini."""
+    try:
+        result = await ai_service.explain_code(body.code, body.language or "python", model=body.model)
+        save_task(
+            module="explain",
+            title=f"Code Explanation ({body.language})",
+            description=body.code[:150],
+            language=body.language,
+            input_data={"code": body.code, "language": body.language},
+            result=result
+        )
+        return result
+    except Exception as e:
+        logger.exception("Code explanation failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Explanation failed: {str(e)}")
+
+@app.post("/api/improve")
+async def improve_code_endpoint(body: ImproveCodeRequest):
+    """Recommends actionable improvements, refactoring, and optimizations using Gemini."""
+    try:
+        result = await ai_service.suggest_improvements(
+            body.code,
+            body.language or "python",
+            body.focus or "performance and readability",
+            model=body.model
+        )
+        save_task(
+            module="improve",
+            title=f"Code Improvement ({body.language})",
+            description=body.code[:150],
+            language=body.language,
+            input_data={"code": body.code, "language": body.language, "focus": body.focus},
+            result=result
+        )
+        return result
+    except Exception as e:
+        logger.exception("Code improvement failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Improvement suggestion failed: {str(e)}")
+
+# ==========================================
+# 6. Codebase Intelligence API
+# ==========================================
+
+@app.post("/api/codebase/scan")
+async def scan_codebase_endpoint(body: CodebaseScanRequest):
+    """Scans and indexes a local codebase directory into searchable vector chunks."""
+    try:
+        result = codebase_service.scan_and_index(body.path)
+        save_task(
+            module="codebase",
+            title=f"Codebase Index: {result.get('project_name')}",
+            description=f"Indexed {result.get('file_count')} files, {result.get('total_symbols')} symbols",
+            language="Multi",
+            input_data={"path": body.path},
+            result=result
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Codebase scanning failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Codebase scan error: {str(e)}")
+
+@app.post("/api/codebase/query")
+async def query_codebase_endpoint(body: CodebaseQueryRequest):
+    """Answers developer questions grounded in indexed codebase chunks with Gemini."""
+    try:
+        result = codebase_service.query_codebase(body.path, body.query, model=body.model)
+        save_task(
+            module="codebase_qa",
+            title=f"Codebase Q&A: {body.query[:80]}",
+            description=body.query,
+            language="Multi",
+            input_data={"path": body.path, "query": body.query},
+            result=result
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Codebase query failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Codebase query error: {str(e)}")
+
+@app.get("/api/codebase/status")
+async def codebase_status_endpoint(path: str = Query(..., description="Project path")):
+    """Returns indexing status of a project."""
+    status_info = codebase_service.get_project_status(path)
+    return {"indexed": status_info is not None, "project": status_info}
+
+@app.get("/api/codebase/projects")
+async def list_codebase_projects_endpoint():
+    """Lists all indexed local projects."""
+    from database import models
+    return models.list_codebase_projects()
+
+@app.post("/api/codebase/architecture")
+async def codebase_architecture_endpoint(body: CodebaseScanRequest):
+    """Traces architectural entry points and module hierarchy."""
+    try:
+        return codebase_service.trace_architecture(body.path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Architecture trace failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Architecture trace error: {str(e)}")
+
+# ==========================================
+# 7. Safe AI Code Modification API (Diff, Approval, Rollback)
+# ==========================================
+
+@app.post("/api/diff/propose")
+async def diff_propose_endpoint(body: DiffProposeRequest):
+    """Proposes code modifications with unified diff without modifying files on disk."""
+    try:
+        result = diff_service.propose_change(body.file_path, body.instruction, model=body.model)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Diff proposal failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Diff proposal error: {str(e)}")
+
+@app.post("/api/diff/apply")
+async def diff_apply_endpoint(body: DiffActionRequest):
+    """Applies an approved change to disk, creates .backup, and runs tests."""
+    try:
+        return diff_service.apply_change(body.change_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Diff apply failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Diff apply error: {str(e)}")
+
+@app.post("/api/diff/reject")
+async def diff_reject_endpoint(body: DiffActionRequest):
+    """Rejects a change proposal without modifying files."""
+    try:
+        return diff_service.reject_change(body.change_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Diff reject failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Diff reject error: {str(e)}")
+
+@app.post("/api/diff/rollback")
+async def diff_rollback_endpoint(body: DiffActionRequest):
+    """Restores the original file from .backup copy."""
+    try:
+        return diff_service.rollback_change(body.change_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Diff rollback failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Diff rollback error: {str(e)}")
+
+@app.get("/api/diff/history")
+async def diff_history_endpoint(status: Optional[str] = Query(None)):
+    """Returns history of proposed code modifications."""
+    return diff_service.list_changes(status=status)
 
 # ==========================================
 # 5. GitHub Assistant API

@@ -37,6 +37,55 @@ def init_db():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_module ON tasks(module)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_created ON tasks(created_at DESC)")
+
+        # Codebase Intelligence projects
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS codebase_projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            file_count INTEGER DEFAULT 0,
+            total_symbols INTEGER DEFAULT 0,
+            total_chunks INTEGER DEFAULT 0,
+            indexed_at TEXT NOT NULL
+        )
+        """)
+
+        # Codebase Intelligence chunks and embeddings
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS codebase_chunks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_path TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            chunk_id TEXT NOT NULL,
+            symbol_type TEXT,
+            name TEXT,
+            start_line INTEGER,
+            end_line INTEGER,
+            content TEXT NOT NULL,
+            embedding TEXT
+        )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_project ON codebase_chunks(project_path)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_file ON codebase_chunks(file_path)")
+
+        # Safe AI Code Modifications (Diffs, Approvals, Rollbacks)
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS pending_changes (
+            id TEXT PRIMARY KEY,
+            file_path TEXT NOT NULL,
+            original_content TEXT NOT NULL,
+            proposed_content TEXT NOT NULL,
+            unified_diff TEXT NOT NULL,
+            explanation TEXT,
+            status TEXT DEFAULT 'pending',
+            backup_path TEXT,
+            test_results TEXT,
+            created_at TEXT NOT NULL,
+            applied_at TEXT
+        )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_pending_changes_status ON pending_changes(status)")
         conn.commit()
     logger.info("Database initialized at %s", db_path)
 
